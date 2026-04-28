@@ -15,15 +15,9 @@
 # pylint: disable=wrong-import-position
 """Train a PPO agent using RSL-RL for the specified environment."""
 
-import os
-
-xla_flags = os.environ.get("XLA_FLAGS", "")
-xla_flags += " --xla_gpu_triton_gemm_any=True"
-os.environ["XLA_FLAGS"] = xla_flags
-os.environ["MUJOCO_GL"] = "egl"
-
 from datetime import datetime
 import json
+import os
 
 from absl import app
 from absl import flags
@@ -32,15 +26,24 @@ import jax
 import mediapy as media
 from ml_collections import config_dict
 import mujoco
-from rsl_rl.runners import OnPolicyRunner
-import torch
-import wandb
-
 import mujoco_playground
 from mujoco_playground import registry
 from mujoco_playground import wrapper_torch
 from mujoco_playground.config import locomotion_params
 from mujoco_playground.config import manipulation_params
+from rsl_rl.runners import OnPolicyRunner
+import torch
+import warp as wp
+
+try:
+  import wandb  # pylint: disable=g-import-not-at-top
+except ImportError:
+  wandb = None
+
+xla_flags = os.environ.get("XLA_FLAGS", "")
+xla_flags += " --xla_gpu_triton_gemm_any=True"
+os.environ["XLA_FLAGS"] = xla_flags
+os.environ["MUJOCO_GL"] = "egl"
 
 # Suppress logs if you want
 logging.set_verbosity(logging.WARNING)
@@ -53,6 +56,12 @@ _ENV_NAME = flags.DEFINE_string(
         "Name of the environment. One of: "
         f"{', '.join(mujoco_playground.registry.ALL_ENVS)}"
     ),
+)
+_IMPL = flags.DEFINE_enum("impl", "jax", ["jax", "warp"], "MJX implementation")
+_PLAYGROUND_CONFIG_OVERRIDES = flags.DEFINE_string(
+    "playground_config_overrides",
+    None,
+    "Overrides for the playground env config.",
 )
 _LOAD_RUN_NAME = flags.DEFINE_string(
     "load_run_name", None, "Run name to load from (for checkpoint restoration)."
@@ -78,6 +87,11 @@ _MULTI_GPU = flags.DEFINE_boolean(
 _CAMERA = flags.DEFINE_string(
     "camera", None, "Camera name to use for rendering."
 )
+_WP_KERNEL_CACHE_DIR = flags.DEFINE_string(
+    "wp_kernel_cache_dir",
+    "/tmp/wp_kernel_cache_playground",
+    "Path to the WP kernel cache directory.",
+)
 
 
 def get_rl_config(env_name: str) -> config_dict.ConfigDict:
@@ -92,6 +106,8 @@ def get_rl_config(env_name: str) -> config_dict.ConfigDict:
 def main(argv):
   """Run training and evaluation for the specified environment using RSL-RL."""
   del argv  # unused
+
+  wp.config.kernel_cache_dir = _WP_KERNEL_CACHE_DIR.value
 
   # Possibly parse the device for multi-GPU
   if _MULTI_GPU.value:
@@ -108,7 +124,13 @@ def main(argv):
 
   # Load default config from registry
   env_cfg = registry.get_default_config(_ENV_NAME.value)
+  env_cfg.impl = _IMPL.value
   print(f"Environment config:\n{env_cfg}")
+
+  env_cfg_overrides = {}
+  if _PLAYGROUND_CONFIG_OVERRIDES.value is not None:
+    env_cfg_overrides = json.loads(_PLAYGROUND_CONFIG_OVERRIDES.value)
+    print(f"Environment config overrides:\n{env_cfg_overrides}\n")
 
   # Generate unique experiment name
   now = datetime.now()
@@ -119,7 +141,7 @@ def main(argv):
   print(f"Experiment name: {exp_name}")
 
   # Logging directory
-  logdir = os.path.abspath(os.path.join("logs", exp_name))
+  logdir = os.path.abspath(os.path.join("/tmp/rslrl-training-logs/", exp_name))
   os.makedirs(logdir, exist_ok=True)
   print(f"Logs are being stored in: {logdir}")
 
@@ -129,7 +151,7 @@ def main(argv):
   print(f"Checkpoint path: {ckpt_path}")
 
   # Initialize Weights & Biases if required
-  if _USE_WANDB.value and not _PLAY_ONLY.value:
+  if _USE_WANDB.value and not _PLAY_ONLY.value and wandb is not None:
     wandb.tensorboard.patch(root_logdir=logdir)
     wandb.init(project="mjxrl", name=exp_name)
     wandb.config.update(env_cfg.to_dict())
@@ -152,7 +174,9 @@ def main(argv):
     render_trajectory.append(state)
 
   # Create the environment
-  raw_env = registry.load(_ENV_NAME.value, config=env_cfg)
+  raw_env = registry.load(
+      _ENV_NAME.value, config=env_cfg, config_overrides=env_cfg_overrides
+  )
   brax_env = wrapper_torch.RSLRLBraxWrapper(
       raw_env,
       num_envs,
@@ -186,7 +210,7 @@ def main(argv):
   # If resume, load from checkpoint
   if train_cfg.resume:
     resume_path = wrapper_torch.get_load_path(
-        os.path.abspath("logs"),
+        "/tmp/rslrl-training-logs/",
         load_run=train_cfg.load_run,
         checkpoint=train_cfg.checkpoint,
     )
@@ -206,7 +230,9 @@ def main(argv):
   policy = runner.get_inference_policy(device=device)
 
   # Example: run a single rollout
-  eval_env = registry.load(_ENV_NAME.value, config=env_cfg)
+  eval_env = registry.load(
+      _ENV_NAME.value, config=env_cfg, config_overrides=env_cfg_overrides
+  )
   jit_reset = jax.jit(eval_env.reset)
   jit_step = jax.jit(eval_env.step)
 
@@ -215,17 +241,24 @@ def main(argv):
   rollout = [state]
 
   # We’ll assume your environment’s observation is in state.obs["state"].
-  obs_torch = wrapper_torch._jax_to_torch(state.obs["state"])
+  is_dict_obs = isinstance(eval_env.observation_size, dict)
+  obs = state.obs["state"] if is_dict_obs else state.obs
+  obs_torch = wrapper_torch._jax_to_torch(obs)
 
   for _ in range(env_cfg.episode_length):
     with torch.no_grad():
-      actions = policy(obs_torch)
+      actions = policy({"state": obs_torch})
+      actions = torch.clip(actions, -1.0, 1.0)  # from wrapper_torch.py
     # Step environment
     state = jit_step(state, wrapper_torch._torch_to_jax(actions.flatten()))
     rollout.append(state)
-    obs_torch = wrapper_torch._jax_to_torch(state.obs["state"])
+    obs = state.obs["state"] if is_dict_obs else state.obs
+    obs_torch = wrapper_torch._jax_to_torch(obs)
     if state.done:
       break
+
+  reward_sum = sum(s.reward for s in rollout)
+  print(f"Rollout reward: {reward_sum}")
 
   # Render
   scene_option = mujoco.MjvOption()
@@ -249,5 +282,10 @@ def main(argv):
   print("Rollout video saved as 'rollout.mp4'.")
 
 
-if __name__ == "__main__":
+def run():
+  """Entry point for uv/pip script."""
   app.run(main)
+
+
+if __name__ == "__main__":
+  run()

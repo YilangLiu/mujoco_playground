@@ -1,0 +1,20 @@
+<mujoco>
+  <sensor>
+    <contact name="fl_calf_0_floor_found" geom1="fl_calf_0" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="fl_calf_1_floor_found" geom1="fl_calf_1" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="fr_calf_0_floor_found" geom1="fr_calf_0" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="fr_calf_1_floor_found" geom1="fr_calf_1" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="fl_thigh_0_floor_found" geom1="fl_thigh_0" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="fr_thigh_0_floor_found" geom1="fr_thigh_0" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="fl_hip_0_floor_found" geom1="fl_hip_0" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="fr_hip_0_floor_found" geom1="fr_hip_0" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="rl_calf_0_floor_found" geom1="rl_calf_0" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="rl_calf_1_floor_found" geom1="rl_calf_1" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="rr_calf_0_floor_found" geom1="rr_calf_0" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="rr_calf_1_floor_found" geom1="rr_calf_1" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="rl_thigh_0_floor_found" geom1="rl_thigh_0" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="rr_thigh_0_floor_found" geom1="rr_thigh_0" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="rl_hip_0_floor_found" geom1="rl_hip_0" geom2="floor" reduce="mindist" num="1" data="found"/>
+    <contact name="rr_hip_0_floor_found" geom1="rr_hip_0" geom2="floor" reduce="mindist" num="1" data="found"/>
+  </sensor>
+</mujoco>

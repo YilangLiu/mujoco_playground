@@ -37,7 +37,7 @@ EXTERNAL_DEPS_PATH = epath.Path(__file__).parent.parent / "external_deps"
 # Resource paths do not have glob implemented, so we use a bare epath.Path.
 MENAGERIE_PATH = EXTERNAL_DEPS_PATH / "mujoco_menagerie"
 # Commit SHA of the menagerie repo.
-MENAGERIE_COMMIT_SHA = "14ceccf557cc47240202f2354d684eca58ff8de4"
+MENAGERIE_COMMIT_SHA = "1b86ece576591213e2b666ebf59508454200ca97"
 
 
 def _clone_with_progress(
@@ -135,13 +135,15 @@ def make_data(
     mocap_pos: Optional[jax.Array] = None,
     mocap_quat: Optional[jax.Array] = None,
     impl: Optional[str] = None,
-    nconmax: Optional[int] = None,
+    naconmax: Optional[int] = None,
+    naccdmax: Optional[int] = None,
     njmax: Optional[int] = None,
     device: Optional[jax.Device] = None, # type: ignore
 ) -> mjx.Data:
   """Initialize MJX Data."""
   data = mjx.make_data(
-      model, impl=impl, nconmax=nconmax, njmax=njmax, device=device
+      model, impl=impl, naconmax=naconmax, naccdmax=naccdmax, njmax=njmax,
+      device=device,
   )
   if qpos is not None:
     data = data.replace(qpos=qpos)

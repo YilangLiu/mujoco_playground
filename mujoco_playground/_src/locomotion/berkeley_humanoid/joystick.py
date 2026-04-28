@@ -93,8 +93,8 @@ def default_config() -> config_dict.ConfigDict:
       lin_vel_x=[-1.0, 1.0],
       lin_vel_y=[-1.0, 1.0],
       ang_vel_yaw=[-1.0, 1.0],
-      impl="jax",
-      nconmax=8 * 8192,
+      impl="warp",
+      naconmax=8 * 8192,
       njmax=60,
   )
 
@@ -108,9 +108,6 @@ class Joystick(berkeley_humanoid_base.BerkeleyHumanoidEnv):
       config: config_dict.ConfigDict = default_config(),
       config_overrides: Optional[Dict[str, Union[str, int, list[Any]]]] = None,
   ):
-    if task.startswith("rough"):
-      config.nconmax = 100 * 8192
-      config.njmax = 12 + 100 * 4
     super().__init__(
         xml_path=consts.task_to_xml(task).as_posix(),
         config=config,
@@ -221,7 +218,7 @@ class Joystick(berkeley_humanoid_base.BerkeleyHumanoidEnv):
         qvel=qvel,
         ctrl=qpos[7:],
         impl=self.mjx_model.impl.value,
-        nconmax=self._config.nconmax,
+        naconmax=self._config.naconmax,
         njmax=self._config.njmax,
     )
     data = mjx.forward(self.mjx_model, data)

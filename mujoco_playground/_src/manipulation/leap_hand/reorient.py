@@ -67,9 +67,9 @@ def default_config() -> config_dict.ConfigDict:
           pert_duration_steps=[1, 100],
           pert_wait_steps=[60, 150],
       ),
-      impl='jax',
-      nconmax=30 * 8192,
-      njmax=128,
+      impl='warp',
+      naconmax=30 * 8192,
+      njmax=160,
   )
 
 
@@ -137,7 +137,7 @@ class CubeReorient(leap_hand_base.LeapHandEnv):
         mocap_pos=self._init_mpos,
         mocap_quat=goal_quat,
         impl=self._mjx_model.impl.value,
-        nconmax=self._config.nconmax,
+        naconmax=self._config.naconmax,
         njmax=self._config.njmax,
     )
 

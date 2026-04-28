@@ -101,7 +101,7 @@ def default_config() -> config_dict.ConfigDict:
     cfg.rewards.scales.base_tracking = -1.0
     # 其他
     cfg.impl = "jax"
-    cfg.nconmax = 4 * 8192
+    cfg.naconmax = 4 * 8192
     cfg.njmax = 40
     return cfg
 
@@ -190,7 +190,7 @@ class TrotGo2(Go2Env):
             qvel=qvel,
             ctrl=jp.zeros(self.mjx_model.nu),
             impl=self.mjx_model.impl.value,
-            nconmax=self._config.nconmax,
+            naconmax=self._config.naconmax,
             njmax=self._config.njmax,
         )
         data = mjx.forward(self.mjx_model, data)
@@ -205,7 +205,7 @@ class TrotGo2(Go2Env):
             qvel=qvel,
             ctrl=jp.zeros(self.mjx_model.nu),
             impl=self.mjx_model.impl.value,
-            nconmax=self._config.nconmax,
+            naconmax=self._config.naconmax,
             njmax=self._config.njmax,
         )
         data = mjx.forward(self.mjx_model, data)
@@ -493,4 +493,3 @@ class TrotGo2(Go2Env):
 #     TrotAnymal,     # 环境类
 #     default_config      # 默认配置函数
 # )
-

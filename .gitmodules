@@ -1,3 +1,6 @@
 [submodule "mujoco_playground/external_deps/dial-mpc"]
 	path = mujoco_playground/external_deps/dial-mpc
 	url = git@github.com:LeCAR-Lab/dial-mpc.git
+[submodule "mujoco_playground/external_deps/rsl_rl"]
+	path = mujoco_playground/external_deps/rsl_rl
+	url = https://github.com/leggedrobotics/rsl_rl

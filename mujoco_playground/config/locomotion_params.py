@@ -76,8 +76,8 @@ def brax_apg_config(
     rl_config.policy_updates=1000
     rl_config.horizon_length=32
     rl_config.num_envs=128
-    rl_config.learning_rate=1e-4
-    rl_config.num_eval_envs=128
+    rl_config.learning_rate=5e-4
+    rl_config.num_eval_envs=64
     rl_config.num_evals=10 + 1
     rl_config.use_float64=True
     rl_config.normalize_observations=True

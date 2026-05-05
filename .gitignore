@@ -7,6 +7,10 @@ mujoco_menagerie
 checkpoints/
 mujoco_playground/experimental/learning/wandb/
 logs
+<<<<<<< HEAD
 wandb/
 *.mp4
 mujoco_playground/experimental/learning/check_points/
+=======
+.mujoco_playground_asset_cache/
+>>>>>>> origin/main

@@ -1,0 +1,3 @@
+[submodule "mujoco_playground/external_deps/dial-mpc"]
+	path = mujoco_playground/external_deps/dial-mpc
+	url = git@github.com:LeCAR-Lab/dial-mpc.git

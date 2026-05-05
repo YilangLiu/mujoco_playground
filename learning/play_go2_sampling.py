@@ -17,6 +17,7 @@ import jax
 import jax.numpy as jp
 from jax_cosmo.scipy.interpolate import InterpolatedUnivariateSpline
 import mediapy as media
+import numpy as np
 from tqdm import tqdm
 
 from mujoco_playground._src import mjx_env
@@ -141,6 +142,48 @@ def render_rollout(
   print(f"Saved rollout video to {output_path} ({len(frames)} frames at {fps:.1f} FPS).")
 
 
+def save_reference_rollout(
+    env: go2_sampling.Go2Sampling,
+    states: Sequence[mjx_env.State],
+    actions: Sequence[jax.Array],
+    rewards: Sequence[jax.Array],
+    output_path: Path,
+) -> None:
+  output_path.parent.mkdir(parents=True, exist_ok=True)
+  qpos = np.asarray(jax.device_get(jp.stack([state.data.qpos for state in states])))
+  qvel = np.asarray(jax.device_get(jp.stack([state.data.qvel for state in states])))
+  base_xpos = np.asarray(
+      jax.device_get(jp.stack([state.data.xpos[env._torso_body_id] for state in states]))
+  )
+  feet_xpos = np.asarray(
+      jax.device_get(jp.stack([state.data.site_xpos[env._feet_site_ids] for state in states]))
+  )
+  action_arr = (
+      np.asarray(jax.device_get(jp.stack(actions)))
+      if actions
+      else np.zeros((0, env.action_size), dtype=np.float32)
+  )
+  reward_arr = (
+      np.asarray(jax.device_get(jp.stack(rewards)))
+      if rewards
+      else np.zeros((0,), dtype=np.float32)
+  )
+  np.savez(
+      output_path,
+      qpos=qpos,
+      qvel=qvel,
+      actions=action_arr,
+      rewards=reward_arr,
+      base_xpos=base_xpos,
+      feet_xpos=feet_xpos,
+      dt=np.array(env.dt),
+  )
+  print(
+      "Saved APG reference rollout to "
+      f"{output_path} (qpos={qpos.shape}, qvel={qvel.shape})."
+  )
+
+
 def run(args: argparse.Namespace) -> mjx_env.State:
   env_cfg = go2_sampling.default_config()
   env_cfg.impl = args.impl
@@ -171,6 +214,7 @@ def run(args: argparse.Namespace) -> mjx_env.State:
   ybar = jp.zeros((args.hnode + 1, env.action_size))
   rollout = [state]
   rews = []
+  actions = []
   print(
       "Starting Go2 sequential-jump sampling rollout "
       f"(steps={args.num_steps}, samples={args.num_samples}, "
@@ -178,9 +222,11 @@ def run(args: argparse.Namespace) -> mjx_env.State:
   )
   with tqdm(range(args.num_steps), desc="Rollout") as pbar:
     for t in pbar:
-      state = step_env(state, ybar[0])
+      action = ybar[0]
+      state = step_env(state, action)
       rollout.append(state)
       rews.append(state.reward)
+      actions.append(action)
 
       ybar = controller.shift(ybar)
 
@@ -209,6 +255,14 @@ def run(args: argparse.Namespace) -> mjx_env.State:
       width=args.width,
       height=args.height,
   )
+  if args.reference_output_path:
+    save_reference_rollout(
+        env=env,
+        states=rollout,
+        actions=actions,
+        rewards=rews,
+        output_path=Path(args.reference_output_path),
+    )
   return state
 
 
@@ -229,6 +283,12 @@ def parse_args() -> argparse.Namespace:
   parser.add_argument("--height", type=int, default=1080)
   parser.add_argument("--impl", type=str, default="jax", choices=("jax", "warp"))
   parser.add_argument("--output_path", type=str, default="go2_seq_jump_sampling.mp4")
+  parser.add_argument(
+      "--reference_output_path",
+      type=str,
+      default="",
+      help="Optional .npz path for exporting qpos/qvel as an APG reference.",
+  )
   return parser.parse_args()
 
 

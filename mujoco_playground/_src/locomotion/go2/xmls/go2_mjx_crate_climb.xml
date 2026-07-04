@@ -21,7 +21,9 @@
       </default>
       <default class="knee">
         <joint range="-2.7227 -0.83776"/>
-        <general ctrlrange="-2.6227 -0.84776"/>
+        <!-- Real Go2 calf motor torque (the shared default is 24 Nm); the
+             climb needs explosive calf extension. -->
+        <general ctrlrange="-2.6227 -0.84776" forcerange="-45.43 45.43"/>
       </default>
       <default class="visual">
         <geom type="mesh" contype="0" conaffinity="0" group="2"/>
@@ -73,6 +75,10 @@
       <inertial pos="0.021112 0 -0.005366" quat="-0.000543471 0.713435 -0.00173769 0.700719" mass="6.921"
         diaginertia="0.107027 0.0980771 0.0244531"/>
       <freejoint/>
+      <!-- Torso collision box from dial-mpc mjx_go2_force_collision.xml:
+           crate climbing rests the belly on the crate edge mid-climb, so the
+           torso must collide for the sampled reference to be feasible. -->
+      <geom name="torso_collision" class="collision" type="box" size="0.1881 0.04675 0.057"/>
       <geom mesh="base_0" material="black" class="visual"/>
       <geom mesh="base_1" material="black" class="visual"/>
       <geom mesh="base_2" material="black" class="visual"/>

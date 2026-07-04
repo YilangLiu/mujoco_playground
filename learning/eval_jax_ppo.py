@@ -412,7 +412,7 @@ def main(argv):
             height=_HEIGHT.value,
             width=_WIDTH.value,
             scene_option=scene_option,
-            camera="track",
+            # camera="track",
         )
         video_path = run_dir / f"rollout_{i}.mp4"
         media.write_video(str(video_path), frames, fps=fps)

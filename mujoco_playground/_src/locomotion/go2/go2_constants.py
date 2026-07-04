@@ -41,6 +41,14 @@ FEET_ONLY_FLAT_TERRAIN_XML = (
 FEET_ONLY_ROUGH_TERRAIN_XML = (
     ROOT_PATH / "xmls" / "scene_mjx_feetonly_rough_terrain.xml"
 )
+# Go2SampleAPG-specific rough scene: feet-only robot + hfield, but with the
+# flat scene's home keyframe (action_loc / reference compatibility).
+SAMPLE_ROUGH_TERRAIN_XML = (
+    ROOT_PATH / "xmls" / "scene_mjx_sample_rough_terrain.xml"
+)
+# Go2SampleAPG crate-climbing scene: dial-mpc's 0.6 m crate + a torso
+# collision box (the sampled climb rests the belly on the crate edge).
+SAMPLE_CRATE_XML = ROOT_PATH / "xmls" / "scene_mjx_sample_crate.xml"
 FULL_FLAT_TERRAIN_XML = ROOT_PATH / "xmls" / "scene_mjx_flat_terrain.xml"
 FULL_COLLISIONS_FLAT_TERRAIN_XML = (
     ROOT_PATH / "xmls" / "scene_mjx_fullcollisions_flat_terrain.xml"

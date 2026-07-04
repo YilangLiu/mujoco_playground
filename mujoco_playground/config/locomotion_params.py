@@ -73,22 +73,90 @@ def brax_apg_config(
 
   elif env_name in ("Go2SampleAPG",):
     rl_config.episode_length=240
-    rl_config.policy_updates=1000
-    rl_config.horizon_length=32
-    rl_config.num_envs=128
-    rl_config.learning_rate=5e-4
+    rl_config.policy_updates=1500
+    # 128 ctrl-steps = 2.56 s, long enough for APG to backprop one full
+    # takeoff→apex→landing→settle jump cycle for credit assignment.
+    rl_config.horizon_length=20
+    rl_config.num_envs=64
+    rl_config.learning_rate=1e-4
+    # APG gradients through contact transitions can spike by 4+ orders of
+    # magnitude (observed grad_norm up to 18k on Go2 jumps); clip globally
+    # to 1.0 so a single bad batch can't blow up the policy.
+    rl_config.max_gradient_norm=1.0
     rl_config.num_eval_envs=64
     rl_config.num_evals=10 + 1
     rl_config.use_float64=True
     rl_config.normalize_observations=True
     rl_config.network_factory = config_dict.create(
-        hidden_layer_sizes=(512, 256, 128),
+        hidden_layer_sizes=(256, 128),
     )
 
   else:
     raise ValueError(f"Unsupported env: {env_name}")
 
   return rl_config
+
+
+def dva_config(
+    env_name: str, unused_impl: Optional[str] = None
+) -> config_dict.ConfigDict:
+  """Returns D.VA (decoupled first-order) config for the given environment.
+
+  Hypers follow D.VA's quadruped config (examples/cfg/dva/anymal.yaml):
+  H=32 BPTT window with TD-lambda(0.95) asymmetric critic, actor/critic lr
+  2e-3 with linear decay, target-critic Polyak alpha=0.2, Adam betas
+  (0.7, 0.95), grad-norm clip 1.0. num_envs=64 and max_epochs=1000 are
+  chosen for sample parity with the brax-APG Go2SampleAPG baseline
+  (1500 updates x 64 envs x 20 steps = 1.92M vs 1000 x 64 x 32 = 2.05M).
+  """
+  if env_name not in ("Go2SampleAPG",):
+    raise ValueError(f"Unsupported env for DVA: {env_name}")
+
+  return config_dict.create(
+      episode_length=240,
+      max_epochs=1000,
+      horizon_length=32,
+      num_envs=64,
+      num_evals=10 + 1,
+      num_eval_envs=64,
+      action_repeat=1,
+      actor_lr=2e-3,
+      critic_lr=2e-3,
+      lr_schedule="linear",
+      betas=(0.7, 0.95),
+      gamma=0.99,
+      td_lambda=0.95,
+      target_critic_alpha=0.2,
+      critic_iterations=16,
+      num_batch=4,
+      rew_scale=1.0,
+      grad_norm=1.0,
+      truncate_grads=True,
+      normalize_observations=True,
+      actor_hidden=(128, 64, 32),
+      critic_hidden=(64, 64),
+      actor_logstd_init=-1.0,
+      deterministic_eval=True,
+      scramble_time=True,
+      # Redraw per-episode reset randomness (RSI frame, reference-ensemble
+      # member, injection noise) at eval-block boundaries; without it the
+      # full_reset=False autoreset replays num_envs fixed reset tuples all
+      # run. Off by default for parity with earlier runs.
+      reset_envs_per_block=False,
+      seed=0,
+      actor_obs_key="state",
+      critic_obs_key="state",
+      # Vision mode (egocentric depth + proprio actor; state critic). The
+      # renderer is the MJX-Warp twin-data pipeline owned by the trainer;
+      # the env stays pixel-free. Requires num_eval_envs == num_envs.
+      vision=False,
+      cam_res=(64, 64),  # (width, height), render-context convention
+      frame_stack=3,
+      depth_scale=3.0,
+      vision_camera="egocentric",
+      vision_proprio="full",
+      encoder_dim=128,
+  )
 
 
 def brax_ppo_config(

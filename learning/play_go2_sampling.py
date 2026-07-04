@@ -1,4 +1,4 @@
-"""Run sampling-based inference for the Go2 sequential-jump environment."""
+"""Run sampling-based inference for Go2 tasks (sequential jump or trotting)."""
 
 from __future__ import annotations
 
@@ -24,6 +24,39 @@ from mujoco_playground._src import mjx_env
 from mujoco_playground._src.locomotion.go2 import go2_sampling
 
 
+TASKS = {
+    # dial-mpc unitree_go2_crate_climb.yaml settings: Nsample 2048,
+    # Hsample 25, Hnode 5, Ndiffuse 4 (init 10), temp 0.05,
+    # horizon_diffuse_factor 1.0, traj_diffuse_factor 0.5, n_steps 100:
+    #   python learning/play_go2_sampling.py --task crate_climb \
+    #     --num_steps 100 --hsample 25 --num_diffuse 4 \
+    #     --horizon_diffuse_factor 1.0
+    "crate_climb": (
+        go2_sampling.default_crate_climb_config,
+        go2_sampling.Go2CrateClimb,
+        "go2_crate_climb_sampling.mp4",
+    ),
+    # Crate climbing sampled ON the Go2SampleAPG training plant (playground
+    # model, position-PD, 2 ms substeps) — references from this task are
+    # already in playground joint order; do NOT run fix_reference_leg_order.
+    "crate_climb_pg": (
+        go2_sampling.default_crate_climb_pg_config,
+        go2_sampling.Go2CrateClimbPG,
+        "go2_crate_climb_pg_sampling.mp4",
+    ),
+    "seq_jump": (
+        go2_sampling.default_seq_jump_config,
+        go2_sampling.Go2SeqJump,
+        "go2_seq_jump_sampling.mp4",
+    ),
+    "trot": (
+        go2_sampling.default_trot_config,
+        go2_sampling.Go2Trot,
+        "go2_trot_sampling.mp4",
+    ),
+}
+
+
 def rollout_us(
     step_env,
     state: mjx_env.State,
@@ -42,7 +75,7 @@ class DialNodeController:
 
   def __init__(
       self,
-      env: go2_sampling.Go2Sampling,
+      env: go2_sampling._Go2DialBase,
       num_samples: int,
       hsample: int,
       hnode: int,
@@ -128,7 +161,7 @@ class DialNodeController:
 
 
 def render_rollout(
-    env: go2_sampling.Go2Sampling,
+    env: go2_sampling._Go2DialBase,
     states: Sequence[mjx_env.State],
     output_path: Path,
     render_every: int,
@@ -143,7 +176,7 @@ def render_rollout(
 
 
 def save_reference_rollout(
-    env: go2_sampling.Go2Sampling,
+    env: go2_sampling._Go2DialBase,
     states: Sequence[mjx_env.State],
     actions: Sequence[jax.Array],
     rewards: Sequence[jax.Array],
@@ -185,10 +218,13 @@ def save_reference_rollout(
 
 
 def run(args: argparse.Namespace) -> mjx_env.State:
-  env_cfg = go2_sampling.default_config()
+  if args.task not in TASKS:
+    raise ValueError(f"Unknown task '{args.task}'. Choose from {sorted(TASKS)}.")
+  cfg_fn, env_cls, _ = TASKS[args.task]
+  env_cfg = cfg_fn()
   env_cfg.impl = args.impl
   env_cfg.episode_length = args.num_steps + 1
-  env = go2_sampling.Go2Sampling(config=env_cfg)
+  env = env_cls(config=env_cfg)
 
   reset_env = jax.jit(env.reset)
   step_env = jax.jit(env.step)
@@ -216,7 +252,7 @@ def run(args: argparse.Namespace) -> mjx_env.State:
   rews = []
   actions = []
   print(
-      "Starting Go2 sequential-jump sampling rollout "
+      f"Starting Go2 '{args.task}' sampling rollout "
       f"(steps={args.num_steps}, samples={args.num_samples}, "
       f"Hsample={args.hsample}, Hnode={args.hnode})."
   )
@@ -268,6 +304,13 @@ def run(args: argparse.Namespace) -> mjx_env.State:
 
 def parse_args() -> argparse.Namespace:
   parser = argparse.ArgumentParser()
+  parser.add_argument(
+      "--task",
+      type=str,
+      default="seq_jump",
+      choices=sorted(TASKS.keys()),
+      help="Which Go2 task to run: 'seq_jump', 'trot', or 'crate_climb'.",
+  )
   parser.add_argument("--seed", type=int, default=0)
   parser.add_argument("--num_steps", type=int, default=300)
   parser.add_argument("--num_samples", type=int, default=2048)
@@ -282,14 +325,22 @@ def parse_args() -> argparse.Namespace:
   parser.add_argument("--width", type=int, default=1920)
   parser.add_argument("--height", type=int, default=1080)
   parser.add_argument("--impl", type=str, default="jax", choices=("jax", "warp"))
-  parser.add_argument("--output_path", type=str, default="go2_seq_jump_sampling.mp4")
+  parser.add_argument(
+      "--output_path",
+      type=str,
+      default="",
+      help="Video output path. Defaults to a per-task filename if empty.",
+  )
   parser.add_argument(
       "--reference_output_path",
       type=str,
       default="",
       help="Optional .npz path for exporting qpos/qvel as an APG reference.",
   )
-  return parser.parse_args()
+  args = parser.parse_args()
+  if not args.output_path:
+    args.output_path = TASKS[args.task][2]
+  return args
 
 
 if __name__ == "__main__":

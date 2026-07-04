@@ -4,13 +4,18 @@ __pycache__
 .venv
 MUJOCO_LOG.TXT
 mujoco_menagerie
-checkpoints/
-mujoco_playground/experimental/learning/wandb/
-logs
-<<<<<<< HEAD
-wandb/
-*.mp4
-mujoco_playground/experimental/learning/check_points/
-=======
 .mujoco_playground_asset_cache/
->>>>>>> origin/main
+
+# Experiment outputs: run dirs, checkpoints, trackers, media. References
+# (references/*.npz, *.warmstart) are small research inputs and ARE tracked.
+logs/
+checkpoints/
+mujoco_playground/experimental/learning/check_points/
+wandb/
+mujoco_playground/experimental/learning/wandb/
+*.mp4
+*.npy
+
+# Editor / assistant local config
+.vscode/
+.claude/
